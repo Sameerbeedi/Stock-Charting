@@ -2,10 +2,12 @@ import streamlit as st
 import pandas as pd
 from plot import plot_candlestick
 from chatbot import get_bot_response
-
+import os
 st.set_page_config(layout='wide', page_title="Stock Dashboard with AI Chat")
 
-df = pd.read_csv("data/stock_data.csv", parse_dates=["timestamp"])
+#df = pd.read_csv("data/stock_data.csv", parse_dates=["timestamp"])
+
+print(os.path.exists("data/stock_data.csv"))  # Should print True
 
 tab1, tab2 = st.tabs(["📊 Chart", "🤖 AI Chatbot"])
 
