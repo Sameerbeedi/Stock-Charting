@@ -5,7 +5,7 @@ from chatbot import get_bot_response
 
 st.set_page_config(layout='wide', page_title="Stock Dashboard with AI Chat")
 
-df = pd.read_csv("data/stock_data.csv", parse_dates=["Date"])
+df = pd.read_csv("data/stock_data.csv", parse_dates=["timestamp"])
 
 tab1, tab2 = st.tabs(["📊 Chart", "🤖 AI Chatbot"])
 
