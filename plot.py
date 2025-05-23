@@ -1,54 +1,122 @@
 import pandas as pd
-import plotly.graph_objects as go
+import streamlit as st
+from streamlit_lightweight_charts import renderLightweightCharts
 
-def plot_candlestick(df):
-    fig = go.Figure()
+def plot_candlestick_lightweight(df):
+    df = df.copy()
+    df = df.sort_values('timestamp')
 
-    # Candlestick chart
-    fig.add_trace(go.Candlestick(
-        x=df['timestamp'], open=df['open'], high=df['high'],
-        low=df['low'], close=df['close'], name='Candles'))
+    # Prepare the candlestick data
+    candles = []
+    markers = []
+    support_zones = []
+    resistance_zones = []
 
-    # Markers
-    for i, row in df.iterrows():
-        if row['direction'] == 'LONG':
-            fig.add_trace(go.Scatter(
-                x=[row['timestamp']], y=[row['low'] - 1],
-                mode='markers',
-                marker=dict(symbol='arrow-up', color='green', size=15),
-                name='LONG'))
-        elif row['direction'] == 'SHORT':
-            fig.add_trace(go.Scatter(
-                x=[row['timestamp']], y=[row['high'] + 1],
-                mode='markers',
-                marker=dict(symbol='arrow-down', color='red', size=15),
-                name='SHORT'))
-        elif row['direction'] is None or pd.isna(row['direction']):
-            fig.add_trace(go.Scatter(
-                x=[row['timestamp']], y=[(row['high'] + row['low']) / 2],
-                mode='markers',
-                marker=dict(symbol='circle', color='yellow', size=10),
-                name='Neutral'))
+    for _, row in df.iterrows():
+        ts = row['timestamp']
+        candles.append({
+            "time": ts,
+            "open": row["open"],
+            "high": row["high"],
+            "low": row["low"],
+            "close": row["close"]
+        })
 
-    # Support bands
-    for i, row in df.iterrows():
-        if pd.notna(row['Support']):
-            support = eval(row['Support'])
-            if support:  
-                fig.add_shape(type='rect',
-                    x0=row['timestamp'], x1=row['timestamp'],
-                    y0=min(support), y1=max(support),
-                    fillcolor='rgba(0,255,0,0.2)', line=dict(width=0))
+        # Marker logic
+        direction = row.get('direction', None)
+        if direction == 'LONG':
+            markers.append({
+                "time": ts,
+                "position": "belowBar",
+                "color": "green",
+                "shape": "arrowUp",
+                "text": "LONG"
+            })
+        elif direction == 'SHORT':
+            markers.append({
+                "time": ts,
+                "position": "aboveBar",
+                "color": "red",
+                "shape": "arrowDown",
+                "text": "SHORT"
+            })
+        else:
+            markers.append({
+                "time": ts,
+                "position": "inBar",
+                "color": "yellow",
+                "shape": "circle",
+                "text": "N/A"
+            })
 
-    # Resistance bands
-    for i, row in df.iterrows():
-        if pd.notna(row['Resistance']):
-            resistance = eval(row['Resistance'])
-            if resistance:  
-                fig.add_shape(type='rect',
-                    x0=row['timestamp'], x1=row['timestamp'],
-                    y0=min(resistance), y1=max(resistance),
-                    fillcolor='rgba(255,0,0,0.2)', line=dict(width=0))
+        # Support band (drawn as separate line series per row range)
+        if isinstance(row.get('Support'), list) and len(row['Support']) > 0:
+            support_zones.append({
+                "time": ts,
+                "value": min(row['Support']),
+                "color": "rgba(0, 255, 0, 0.3)"
+            })
+            support_zones.append({
+                "time": ts,
+                "value": max(row['Support']),
+                "color": "rgba(0, 255, 0, 0.3)"
+            })
 
-    fig.update_layout(xaxis_rangeslider_visible=False, height=600)
-    return fig
+        # Resistance band
+        if isinstance(row.get('Resistance'), list) and len(row['Resistance']) > 0:
+            resistance_zones.append({
+                "time": ts,
+                "value": min(row['Resistance']),
+                "color": "rgba(255, 0, 0, 0.3)"
+            })
+            resistance_zones.append({
+                "time": ts,
+                "value": max(row['Resistance']),
+                "color": "rgba(255, 0, 0, 0.3)"
+            })
+
+    # Create the series list
+    series = [
+        {
+            "type": "candlestick",
+            "data": candles,
+            "markers": markers,
+        },
+        {
+            "type": "line",
+            "data": support_zones,
+            "color": "rgba(0, 255, 0, 0.3)",
+            "lineWidth": 1,
+        },
+        {
+            "type": "line",
+            "data": resistance_zones,
+            "color": "rgba(255, 0, 0, 0.3)",
+            "lineWidth": 1,
+        }
+    ]
+
+    chart_options = {
+        "layout": {
+            "backgroundColor": "#000000",
+            "textColor": "#FFFFFF"
+        },
+        "priceScale": {
+            "borderColor": "#cccccc"
+        },
+        "timeScale": {
+            "borderColor": "#cccccc"
+        },
+        "crosshair": {
+            "mode": 1
+        },
+        "grid": {
+            "vertLines": {"color": "#404040"},
+            "horzLines": {"color": "#404040"}
+        },
+        "width": 1000,
+        "height": 500,
+    }
+
+    renderLightweightCharts(series, chart_options)
+
