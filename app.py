@@ -11,8 +11,7 @@ tab1, tab2 = st.tabs(["📊 Chart", "🤖 AI Chatbot"])
 with tab1:
     st.title("Candlestick Chart with Markers and Bands")
     try:
-        fig = plot_candlestick(df)
-        st.pyplot(fig, use_container_width=True)  
+        plot_candlestick(df)  
     except Exception as e:
         st.error(f"Error plotting chart: {e}")
     
