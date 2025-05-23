@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 from streamlit_lightweight_charts import renderLightweightCharts
 
-def plot_candlestick_lightweight(df):
+def plot_candlestick(df):
     df = df.copy()
     df = df.sort_values('timestamp')
 
