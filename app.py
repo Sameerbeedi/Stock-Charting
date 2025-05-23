@@ -7,7 +7,8 @@ st.set_page_config(layout='wide', page_title="Stock Dashboard with AI Chat")
 
 df = pd.read_csv("data/stock_data.csv", parse_dates=['timestamp'])
 
-
+st.write(df.head())
+st.write(df.shape)
 
 tab1, tab2 = st.tabs(["📊 Chart", "🤖 AI Chatbot"])
 

@@ -7,7 +7,7 @@ model = genai.GenerativeModel("gemini-pro")
 def get_bot_response(df, query):
     # Extract TSLA related stats
     if "bullish" in query.lower():
-        bullish_days = df[df['Direction'] == 'LONG'].shape[0]
+        bullish_days = df[df['direction'] == 'LONG'].shape[0]
         return f"TSLA was bullish on {bullish_days} days in the dataset."
     
     elif "support" in query.lower():
