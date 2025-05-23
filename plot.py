@@ -5,6 +5,8 @@ from streamlit_lightweight_charts import renderLightweightCharts
 def plot_candlestick(df):
     df = df.copy()
     df = df.sort_values('timestamp')
+    df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%dT%H:%M:%S')
+
 
     # Prepare the candlestick data
     candles = []
