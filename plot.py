@@ -2,6 +2,9 @@ import plotly.graph_objects as go
 import pandas as pd
 
 def plot_candlestick(df):
+    # Ensure timestamp column is datetime
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+
     fig = go.Figure()
 
     # Add candlestick trace
@@ -16,61 +19,94 @@ def plot_candlestick(df):
         decreasing_line_color='red'
     ))
 
-    # Add markers for LONG, SHORT, None
-    for i, row in df.iterrows():
-        if row['direction'] == 'LONG':
-            fig.add_trace(go.Scatter(
-                x=[row['timestamp']],
-                y=[row['low'] * 0.995],  # Slightly below the candle
-                mode='markers',
-                marker=dict(symbol='arrow-up', color='green', size=12),
-                name='LONG',
-                showlegend=False
-            ))
-        elif row['direction'] == 'SHORT':
-            fig.add_trace(go.Scatter(
-                x=[row['timestamp']],
-                y=[row['high'] * 1.005],  # Slightly above the candle
-                mode='markers',
-                marker=dict(symbol='arrow-down', color='red', size=12),
-                name='SHORT',
-                showlegend=False
-            ))
-        elif pd.isna(row['direction']) or row['direction'] is None:
-            fig.add_trace(go.Scatter(
-                x=[row['timestamp']],
-                y=[(row['high'] + row['low']) / 2],
-                mode='markers',
-                marker=dict(symbol='circle', color='yellow', size=10),
-                name='NEUTRAL',
-                showlegend=False
-            ))
+    # Group markers by direction for efficiency
+    long_x = []
+    long_y = []
+    short_x = []
+    short_y = []
+    neutral_x = []
+    neutral_y = []
 
-    # Add support bands (green)
+    for i, row in df.iterrows():
+        direction = row.get('direction', None)
+        if direction == 'LONG':
+            long_x.append(row['timestamp'])
+            long_y.append(row['low'] * 0.995)  # Slightly below candle
+        elif direction == 'SHORT':
+            short_x.append(row['timestamp'])
+            short_y.append(row['high'] * 1.005)  # Slightly above candle
+        else:
+            # Treat any other or NaN as neutral
+            neutral_x.append(row['timestamp'])
+            neutral_y.append((row['high'] + row['low']) / 2)
+
+    # Add LONG markers
+    if long_x:
+        fig.add_trace(go.Scatter(
+            x=long_x,
+            y=long_y,
+            mode='markers',
+            marker=dict(symbol='arrow-up', color='green', size=12),
+            name='LONG'
+        ))
+
+    # Add SHORT markers
+    if short_x:
+        fig.add_trace(go.Scatter(
+            x=short_x,
+            y=short_y,
+            mode='markers',
+            marker=dict(symbol='arrow-down', color='red', size=12),
+            name='SHORT'
+        ))
+
+    # Add NEUTRAL markers
+    if neutral_x:
+        fig.add_trace(go.Scatter(
+            x=neutral_x,
+            y=neutral_y,
+            mode='markers',
+            marker=dict(symbol='circle', color='yellow', size=10),
+            name='NEUTRAL'
+        ))
+
+    # Add support bands (green rectangles)
     if 'Support' in df.columns:
         for i, row in df.iterrows():
-            if isinstance(row['Support'], list) and row['Support']:
-                support_low = min(row['Support'])
-                support_high = max(row['Support'])
+            supports = row['Support']
+            if isinstance(supports, list) and supports:
+                support_low = min(supports)
+                support_high = max(supports)
+                ts = row['timestamp']
                 fig.add_shape(
                     type="rect",
-                    x0=row['timestamp'], x1=row['timestamp'],
-                    y0=support_low, y1=support_high,
+                    xref="x",
+                    yref="y",
+                    x0=ts - pd.Timedelta(minutes=30),
+                    x1=ts + pd.Timedelta(minutes=30),
+                    y0=support_low,
+                    y1=support_high,
                     fillcolor="rgba(0,255,0,0.15)",
                     line=dict(width=0),
                     layer="below"
                 )
 
-    # Add resistance bands (red)
+    # Add resistance bands (red rectangles)
     if 'Resistance' in df.columns:
         for i, row in df.iterrows():
-            if isinstance(row['Resistance'], list) and row['Resistance']:
-                resistance_low = min(row['Resistance'])
-                resistance_high = max(row['Resistance'])
+            resistances = row['Resistance']
+            if isinstance(resistances, list) and resistances:
+                resistance_low = min(resistances)
+                resistance_high = max(resistances)
+                ts = row['timestamp']
                 fig.add_shape(
                     type="rect",
-                    x0=row['timestamp'], x1=row['timestamp'],
-                    y0=resistance_low, y1=resistance_high,
+                    xref="x",
+                    yref="y",
+                    x0=ts - pd.Timedelta(minutes=30),
+                    x1=ts + pd.Timedelta(minutes=30),
+                    y0=resistance_low,
+                    y1=resistance_high,
                     fillcolor="rgba(255,0,0,0.15)",
                     line=dict(width=0),
                     layer="below"
@@ -85,6 +121,7 @@ def plot_candlestick(df):
         height=700
     )
 
-    fig.update_xaxes(type='category')  # Helps prevent gaps in date labels
+    # Use date type for x-axis for proper datetime handling
+    fig.update_xaxes(type='date')
 
     fig.show()
