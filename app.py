@@ -1,7 +1,7 @@
 # app.py
 import streamlit as st
 import pandas as pd
-from plotly.graph_objs import Figure, Candlestick, Scatter, Layout, Shape
+from plotly.graph_objs import Figure, Candlestick, Scatter, Layout
 import plotly.graph_objs as go
 from chatbot import get_bot_response  # defined in chatbot.py
 import ast
