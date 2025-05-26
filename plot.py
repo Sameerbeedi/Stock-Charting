@@ -124,4 +124,4 @@ def plot_candlestick(df):
     # Use date type for x-axis for proper datetime handling
     fig.update_xaxes(type='date')
 
-    fig.show()
+    return fig
