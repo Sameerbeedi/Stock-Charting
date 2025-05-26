@@ -4,177 +4,125 @@ from streamlit_lightweight_charts import renderLightweightCharts
 import json
 
 def plot_candlestick(df):
-    df = df.copy()
-    df = df.sort_values('timestamp')
-    df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%dT%H:%M:%S')
-
-    # Prepare the candlestick data
+    """Ultra-minimal implementation to avoid encoding issues"""
+    
+    # Create a minimal copy with only essential data
+    df_clean = df.copy().sort_values('timestamp')
+    
+    # Convert timestamp to string format
+    df_clean['time_str'] = df_clean['timestamp'].dt.strftime('%Y-%m-%d')
+    
+    # Build data structures using only basic Python types
     candles = []
     markers = []
-    support_lines = []
-    resistance_lines = []
-
-    for _, row in df.iterrows():
-        ts = row['timestamp']
+    
+    for idx, row in df_clean.iterrows():
+        # Build candle data with explicit type conversion
+        candle = {
+            "time": str(row['time_str']),
+            "open": round(float(row['open']), 3),
+            "high": round(float(row['high']), 3),
+            "low": round(float(row['low']), 3),
+            "close": round(float(row['close']), 3)
+        }
+        candles.append(candle)
         
-        # Ensure all values are native Python types, not numpy types
-        candles.append({
-            "time": ts,
-            "open": float(row["open"]),
-            "high": float(row["high"]),
-            "low": float(row["low"]),
-            "close": float(row["close"])
-        })
-
-        # Marker logic
-        direction = row.get('direction', None)
+        # Add direction markers
+        direction = str(row.get('direction', 'NONE'))
         if direction == 'LONG':
-            markers.append({
-                "time": ts,
+            marker = {
+                "time": str(row['time_str']),
                 "position": "belowBar",
-                "color": "green",
+                "color": "#00FF00",
                 "shape": "arrowUp",
                 "text": "LONG"
-            })
+            }
+            markers.append(marker)
         elif direction == 'SHORT':
-            markers.append({
-                "time": ts,
-                "position": "aboveBar",
-                "color": "red",
+            marker = {
+                "time": str(row['time_str']),
+                "position": "aboveBar", 
+                "color": "#FF0000",
                 "shape": "arrowDown",
                 "text": "SHORT"
-            })
-        else:
-            markers.append({
-                "time": ts,
-                "position": "inBar",
-                "color": "yellow",
-                "shape": "circle",
-                "text": "N/A"
-            })
-
-        # Support levels - create individual data points for each level
-        support_data = row.get('Support', [])
-        if isinstance(support_data, list) and len(support_data) > 0:
-            for level in support_data:
-                try:
-                    support_lines.append({
-                        "time": ts,
-                        "value": float(level)  # Ensure it's a float, not numpy type
-                    })
-                except (ValueError, TypeError):
-                    continue
-
-        # Resistance levels - create individual data points for each level
-        resistance_data = row.get('Resistance', [])
-        if isinstance(resistance_data, list) and len(resistance_data) > 0:
-            for level in resistance_data:
-                try:
-                    resistance_lines.append({
-                        "time": ts,
-                        "value": float(level)  # Ensure it's a float, not numpy type
-                    })
-                except (ValueError, TypeError):
-                    continue
-
-    # Create the series list - only include series that have data
-    series = [
+            }
+            markers.append(marker)
+    
+    # Create the simplest possible series structure
+    series_data = [
         {
             "type": "candlestick",
             "data": candles,
-            "markers": markers,
+            "markers": markers
         }
     ]
-
-    # Only add support line if we have support data
-    if support_lines:
-        series.append({
-            "type": "line",
-            "data": support_lines,
-            "color": "rgba(0, 255, 0, 0.6)",
-            "lineWidth": 2,
-            "lineStyle": 2,  # Dashed line
-            "title": "Support"
-        })
-
-    # Only add resistance line if we have resistance data
-    if resistance_lines:
-        series.append({
-            "type": "line",
-            "data": resistance_lines,
-            "color": "rgba(255, 0, 0, 0.6)",
-            "lineWidth": 2,
-            "lineStyle": 2,  # Dashed line
-            "title": "Resistance"
-        })
-
-    chart_options = {
+    
+    # Minimal chart options
+    options = {
         "layout": {
             "backgroundColor": "#000000",
             "textColor": "#FFFFFF"
         },
-        "priceScale": {
-            "borderColor": "#cccccc"
-        },
-        "timeScale": {
-            "borderColor": "#cccccc"
-        },
-        "crosshair": {
-            "mode": 1
-        },
-        "grid": {
-            "vertLines": {"color": "#404040"},
-            "horzLines": {"color": "#404040"}
-        },
         "width": 1000,
-        "height": 500,
+        "height": 500
     }
-
+    
+    # Debug: Print the exact data being sent
+    st.write("Sending to chart library:")
+    st.write(f"Series type: {type(series_data)}")
+    st.write(f"Options type: {type(options)}")
+    
+    # Test JSON serialization first
     try:
-        # More aggressive data cleaning to handle encoding issues
-        def deep_clean(obj):
-            """Recursively clean all data types to ensure JSON serialization works"""
-            if obj is None:
-                return None
-            elif isinstance(obj, str):
-                return str(obj)  # Ensure it's a pure string
-            elif isinstance(obj, (int, float, bool)):
-                return obj
-            elif hasattr(obj, 'item'):  # numpy scalar
-                return obj.item()
-            elif hasattr(obj, 'tolist'):  # numpy array
-                return obj.tolist()
-            elif isinstance(obj, dict):
-                return {str(k): deep_clean(v) for k, v in obj.items()}
-            elif isinstance(obj, (list, tuple)):
-                return [deep_clean(item) for item in obj]
-            else:
-                return str(obj)  # Convert any other type to string
+        test_json = json.dumps(series_data, indent=2)
+        st.text("JSON serialization test passed")
         
-        # Apply deep cleaning
-        clean_series = deep_clean(series)
-        clean_options = deep_clean(chart_options)
+        # Try the actual rendering
+        renderLightweightCharts(series_data, options)
         
-        # Additional step: convert to JSON string and back to ensure clean serialization
-        import json
-        try:
-            json_str = json.dumps(clean_series, ensure_ascii=True)
-            clean_series = json.loads(json_str)
-            
-            json_str = json.dumps(clean_options, ensure_ascii=True)
-            clean_options = json.loads(json_str)
-        except Exception as json_error:
-            st.error(f"JSON serialization test failed: {json_error}")
-            return
-        
-        # Try rendering with completely clean data
-        renderLightweightCharts(clean_series, clean_options)
     except Exception as e:
-        st.error(f"Error rendering chart: {e}")
-        st.write("Debug info:")
-        st.write(f"Number of candles: {len(candles)}")
-        st.write(f"Number of support points: {len(support_lines)}")
-        st.write(f"Number of resistance points: {len(resistance_lines)}")
-        st.write("Sample candle data:", candles[:2] if candles else "No candles")
-        st.write("Sample support data:", support_lines[:2] if support_lines else "No support data")
-        st.write("Sample resistance data:", resistance_lines[:2] if resistance_lines else "No resistance data")
+        st.error(f"Failed: {e}")
+        st.code(f"Error type: {type(e)}")
+        
+        # Show exactly what we're trying to serialize
+        st.write("Raw data sample:")
+        st.json(series_data[0] if series_data else {})
+
+
+def plot_candlestick_stepwise(df):
+    """Step-by-step debugging version"""
+    st.write("=== STEP BY STEP DEBUG ===")
+    
+    # Step 1: Basic candlestick only
+    df_clean = df.copy().sort_values('timestamp').head(10)  # Only 10 rows for testing
+    df_clean['time_str'] = df_clean['timestamp'].dt.strftime('%Y-%m-%d')
+    
+    st.write("Step 1: Creating basic candles...")
+    candles = []
+    for _, row in df_clean.iterrows():
+        candle = {
+            "time": str(row['time_str']),
+            "open": float(row['open']),
+            "high": float(row['high']),
+            "low": float(row['low']),
+            "close": float(row['close'])
+        }
+        candles.append(candle)
+    
+    st.write(f"Created {len(candles)} candles")
+    
+    # Test 1: Just candles, no markers
+    try:
+        st.write("Test 1: Basic candlesticks only")
+        series1 = [{"type": "candlestick", "data": candles}]
+        options1 = {"width": 800, "height": 400}
+        
+        json.dumps(series1)  # Test serialization
+        renderLightweightCharts(series1, options1)
+        st.success("✅ Basic candlesticks work!")
+        
+        return  # If this works, we know the basic setup is fine
+        
+    except Exception as e:
+        st.error(f"❌ Basic candlesticks failed: {e}")
+        st.json(candles[0] if candles else {})
