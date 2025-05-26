@@ -1,41 +1,90 @@
-import streamlit as st
-from streamlit_lightweight_charts import renderLightweightCharts
+import plotly.graph_objects as go
 import pandas as pd
-import json
 
-# Sample data (can be replaced with your own)
-data = pd.DataFrame({
-    "time": ["2023-10-01", "2023-10-02", "2023-10-03", "2023-10-04", "2023-10-05"],
-    "open": [100, 105, 110, 108, 112],
-    "high": [110, 115, 118, 112, 120],
-    "low": [95, 100, 108, 106, 111],
-    "close": [108, 112, 110, 111, 118]
-})
+def plot_candlestick(df):
+    fig = go.Figure()
 
-# Prepare the data in the format required by renderLightweightCharts
-series_data = [{
-    "type": "candlestick",
-    "data": data.to_dict(orient="records")  # Converts each row into a dictionary
-}]
+    # Add candlestick trace
+    fig.add_trace(go.Candlestick(
+        x=df['timestamp'],
+        open=df['open'],
+        high=df['high'],
+        low=df['low'],
+        close=df['close'],
+        name='Candlestick',
+        increasing_line_color='green',
+        decreasing_line_color='red'
+    ))
 
-# Optional chart options (customize as needed)
-options = {
-    "width": 800,
-    "height": 400,
-    "layout": {
-        "background": {"color": "#ffffff"},
-        "textColor": "#000000"
-    },
-    "grid": {
-        "vertLines": {"color": "#eee"},
-        "horzLines": {"color": "#eee"}
-    },
-    "priceScale": {"position": "right"},
-    "timeScale": {"timeVisible": True}
-}
+    # Add markers for LONG, SHORT, None
+    for i, row in df.iterrows():
+        if row['direction'] == 'LONG':
+            fig.add_trace(go.Scatter(
+                x=[row['timestamp']],
+                y=[row['low'] * 0.995],  # Slightly below the candle
+                mode='markers',
+                marker=dict(symbol='arrow-up', color='green', size=12),
+                name='LONG',
+                showlegend=False
+            ))
+        elif row['direction'] == 'SHORT':
+            fig.add_trace(go.Scatter(
+                x=[row['timestamp']],
+                y=[row['high'] * 1.005],  # Slightly above the candle
+                mode='markers',
+                marker=dict(symbol='arrow-down', color='red', size=12),
+                name='SHORT',
+                showlegend=False
+            ))
+        elif pd.isna(row['direction']) or row['direction'] is None:
+            fig.add_trace(go.Scatter(
+                x=[row['timestamp']],
+                y=[(row['high'] + row['low']) / 2],
+                mode='markers',
+                marker=dict(symbol='circle', color='yellow', size=10),
+                name='NEUTRAL',
+                showlegend=False
+            ))
 
-# Render chart with proper JSON serialization
-renderLightweightCharts(
-    json.dumps(series_data),
-    json.dumps(options)
-)
+    # Add support bands (green)
+    if 'Support' in df.columns:
+        for i, row in df.iterrows():
+            if isinstance(row['Support'], list) and row['Support']:
+                support_low = min(row['Support'])
+                support_high = max(row['Support'])
+                fig.add_shape(
+                    type="rect",
+                    x0=row['timestamp'], x1=row['timestamp'],
+                    y0=support_low, y1=support_high,
+                    fillcolor="rgba(0,255,0,0.15)",
+                    line=dict(width=0),
+                    layer="below"
+                )
+
+    # Add resistance bands (red)
+    if 'Resistance' in df.columns:
+        for i, row in df.iterrows():
+            if isinstance(row['Resistance'], list) and row['Resistance']:
+                resistance_low = min(row['Resistance'])
+                resistance_high = max(row['Resistance'])
+                fig.add_shape(
+                    type="rect",
+                    x0=row['timestamp'], x1=row['timestamp'],
+                    y0=resistance_low, y1=resistance_high,
+                    fillcolor="rgba(255,0,0,0.15)",
+                    line=dict(width=0),
+                    layer="below"
+                )
+
+    fig.update_layout(
+        title='TSLA Candlestick Chart with Markers and Bands',
+        xaxis_title='Date',
+        yaxis_title='Price',
+        xaxis_rangeslider_visible=False,
+        template='plotly_dark',
+        height=700
+    )
+
+    fig.update_xaxes(type='category')  # Helps prevent gaps in date labels
+
+    fig.show()

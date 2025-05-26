@@ -1,4 +1,5 @@
-streamlit
-pandas
-google-generativeai
-streamlit-lightweight-charts
+streamlit>=1.27.0
+pandas>=1.5.0
+plotly>=5.10.0
+google-generativeai>=0.4.1
+python-dotenv>=1.0.0
