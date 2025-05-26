@@ -1,142 +1,153 @@
 import pandas as pd
 import streamlit as st
-from streamlit_lightweight_charts import renderLightweightCharts
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 def plot_candlestick(df):
+    """
+    Alternative implementation using Plotly instead of streamlit_lightweight_charts
+    This should be more reliable for complex data structures
+    """
     df = df.copy()
     df = df.sort_values('timestamp')
-    df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%dT%H:%M:%S')
-
-    # Prepare the candlestick data
-    candles = []
-    markers = []
-    support_lines = []
-    resistance_lines = []
-
+    
+    # Create subplots
+    fig = make_subplots(
+        rows=2, cols=1,
+        shared_xaxes=True,
+        vertical_spacing=0.02,
+        row_heights=[0.8, 0.2],
+        subplot_titles=('Price Chart', 'Volume')
+    )
+    
+    # Add candlestick chart
+    fig.add_trace(
+        go.Candlestick(
+            x=df['timestamp'],
+            open=df['open'],
+            high=df['high'],
+            low=df['low'],
+            close=df['close'],
+            name="OHLC"
+        ),
+        row=1, col=1
+    )
+    
+    # Add volume if available
+    if 'volume' in df.columns:
+        fig.add_trace(
+            go.Bar(
+                x=df['timestamp'],
+                y=df['volume'],
+                name="Volume",
+                marker_color='rgba(158,202,225,0.8)',
+            ),
+            row=2, col=1
+        )
+    
+    # Add support and resistance levels
     for _, row in df.iterrows():
-        ts = row['timestamp']
+        timestamp = row['timestamp']
         
-        # Ensure all values are native Python types, not numpy types
-        candles.append({
-            "time": ts,
-            "open": float(row["open"]),
-            "high": float(row["high"]),
-            "low": float(row["low"]),
-            "close": float(row["close"])
-        })
-
-        # Marker logic
-        direction = row.get('direction', None)
-        if direction == 'LONG':
-            markers.append({
-                "time": ts,
-                "position": "belowBar",
-                "color": "green",
-                "shape": "arrowUp",
-                "text": "LONG"
-            })
-        elif direction == 'SHORT':
-            markers.append({
-                "time": ts,
-                "position": "aboveBar",
-                "color": "red",
-                "shape": "arrowDown",
-                "text": "SHORT"
-            })
-        else:
-            markers.append({
-                "time": ts,
-                "position": "inBar",
-                "color": "yellow",
-                "shape": "circle",
-                "text": "N/A"
-            })
-
-        # Support levels - create individual data points for each level
+        # Add support levels
         support_data = row.get('Support', [])
         if isinstance(support_data, list) and len(support_data) > 0:
             for level in support_data:
                 try:
-                    support_lines.append({
-                        "time": ts,
-                        "value": float(level)  # Ensure it's a float, not numpy type
-                    })
+                    level = float(level)
+                    fig.add_hline(
+                        y=level,
+                        line_dash="dash",
+                        line_color="green",
+                        line_width=1,
+                        opacity=0.6,
+                        row=1
+                    )
                 except (ValueError, TypeError):
                     continue
-
-        # Resistance levels - create individual data points for each level
+        
+        # Add resistance levels
         resistance_data = row.get('Resistance', [])
         if isinstance(resistance_data, list) and len(resistance_data) > 0:
             for level in resistance_data:
                 try:
-                    resistance_lines.append({
-                        "time": ts,
-                        "value": float(level)  # Ensure it's a float, not numpy type
-                    })
+                    level = float(level)
+                    fig.add_hline(
+                        y=level,
+                        line_dash="dash",
+                        line_color="red",
+                        line_width=1,
+                        opacity=0.6,
+                        row=1
+                    )
                 except (ValueError, TypeError):
                     continue
-
-    # Create the series list - only include series that have data
-    series = [
-        {
-            "type": "candlestick",
-            "data": candles,
-            "markers": markers,
-        }
-    ]
-
-    # Only add support line if we have support data
-    if support_lines:
-        series.append({
-            "type": "line",
-            "data": support_lines,
-            "color": "rgba(0, 255, 0, 0.6)",
-            "lineWidth": 2,
-            "lineStyle": 2,  # Dashed line
-            "title": "Support"
-        })
-
-    # Only add resistance line if we have resistance data
-    if resistance_lines:
-        series.append({
-            "type": "line",
-            "data": resistance_lines,
-            "color": "rgba(255, 0, 0, 0.6)",
-            "lineWidth": 2,
-            "lineStyle": 2,  # Dashed line
-            "title": "Resistance"
-        })
-
-    chart_options = {
-        "layout": {
-            "backgroundColor": "#000000",
-            "textColor": "#FFFFFF"
-        },
-        "priceScale": {
-            "borderColor": "#cccccc"
-        },
-        "timeScale": {
-            "borderColor": "#cccccc"
-        },
-        "crosshair": {
-            "mode": 1
-        },
-        "grid": {
-            "vertLines": {"color": "#404040"},
-            "horzLines": {"color": "#404040"}
-        },
-        "width": 1000,
-        "height": 500,
-    }
-
-    try:
-        renderLightweightCharts(series, chart_options)
-    except Exception as e:
-        st.error(f"Error rendering chart: {e}")
-        st.write("Debug info:")
-        st.write(f"Number of candles: {len(candles)}")
-        st.write(f"Number of support points: {len(support_lines)}")
-        st.write(f"Number of resistance points: {len(resistance_lines)}")
-        st.write("Sample candle data:", candles[:2] if candles else "No candles")
-        st.write("Sample support data:", support_lines[:2] if support_lines else "No support data")
-        st.write("Sample resistance data:", resistance_lines[:2] if resistance_lines else "No resistance data")
+    
+    # Add direction markers
+    long_dates = []
+    long_prices = []
+    short_dates = []
+    short_prices = []
+    
+    for _, row in df.iterrows():
+        direction = row.get('direction', None)
+        if direction == 'LONG':
+            long_dates.append(row['timestamp'])
+            long_prices.append(row['low'] * 0.995)  # Slightly below the low
+        elif direction == 'SHORT':
+            short_dates.append(row['timestamp'])
+            short_prices.append(row['high'] * 1.005)  # Slightly above the high
+    
+    # Add LONG markers
+    if long_dates:
+        fig.add_trace(
+            go.Scatter(
+                x=long_dates,
+                y=long_prices,
+                mode='markers',
+                marker=dict(
+                    symbol='triangle-up',
+                    size=10,
+                    color='green'
+                ),
+                name='LONG',
+                showlegend=True
+            ),
+            row=1, col=1
+        )
+    
+    # Add SHORT markers
+    if short_dates:
+        fig.add_trace(
+            go.Scatter(
+                x=short_dates,
+                y=short_prices,
+                mode='markers',
+                marker=dict(
+                    symbol='triangle-down',
+                    size=10,
+                    color='red'
+                ),
+                name='SHORT',
+                showlegend=True
+            ),
+            row=1, col=1
+        )
+    
+    # Update layout
+    fig.update_layout(
+        title="Candlestick Chart with Markers and Bands",
+        xaxis_title="Date",
+        yaxis_title="Price",
+        height=700,
+        showlegend=True,
+        xaxis_rangeslider_visible=False,
+        template='plotly_dark'
+    )
+    
+    # Update y-axes
+    fig.update_yaxes(title_text="Price", row=1, col=1)
+    fig.update_yaxes(title_text="Volume", row=2, col=1)
+    
+    # Display the chart
+    st.plotly_chart(fig, use_container_width=True)
