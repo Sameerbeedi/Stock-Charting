@@ -2,10 +2,14 @@ import plotly.graph_objects as go
 import pandas as pd
 
 def plot_candlestick(df):
+    print("Start plotting")
+    fig = go.Figure()
+    print("Figure created")
+    print("DF shape in plot:", df.shape)
+    print("Columns:", df.columns)
+
     # Ensure timestamp column is datetime
     df['timestamp'] = pd.to_datetime(df['timestamp'])
-
-    fig = go.Figure()
 
     # Add candlestick trace
     fig.add_trace(go.Candlestick(
@@ -18,6 +22,7 @@ def plot_candlestick(df):
         increasing_line_color='green',
         decreasing_line_color='red'
     ))
+    print("Added candlestick trace")
 
     # Group markers by direction for efficiency
     long_x = []
@@ -69,6 +74,7 @@ def plot_candlestick(df):
             marker=dict(symbol='circle', color='yellow', size=10),
             name='NEUTRAL'
         ))
+    print("Added markers")
 
     # Add support bands (green rectangles)
     if 'Support' in df.columns:
@@ -111,6 +117,7 @@ def plot_candlestick(df):
                     line=dict(width=0),
                     layer="below"
                 )
+    print("Added bands")
 
     fig.update_layout(
         title='TSLA Candlestick Chart with Markers and Bands',
@@ -124,4 +131,5 @@ def plot_candlestick(df):
     # Use date type for x-axis for proper datetime handling
     fig.update_xaxes(type='date')
 
+    print("Returning figure")
     return fig
