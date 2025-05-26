@@ -131,32 +131,43 @@ def plot_candlestick(df):
     }
 
     try:
-        # Ensure all data is JSON serializable
-        def make_serializable(obj):
-            """Convert numpy types and other non-serializable types to basic Python types"""
-            if hasattr(obj, 'item'):  # numpy scalar
+        # More aggressive data cleaning to handle encoding issues
+        def deep_clean(obj):
+            """Recursively clean all data types to ensure JSON serialization works"""
+            if obj is None:
+                return None
+            elif isinstance(obj, str):
+                return str(obj)  # Ensure it's a pure string
+            elif isinstance(obj, (int, float, bool)):
+                return obj
+            elif hasattr(obj, 'item'):  # numpy scalar
                 return obj.item()
             elif hasattr(obj, 'tolist'):  # numpy array
                 return obj.tolist()
             elif isinstance(obj, dict):
-                return {k: make_serializable(v) for k, v in obj.items()}
-            elif isinstance(obj, list):
-                return [make_serializable(item) for item in obj]
+                return {str(k): deep_clean(v) for k, v in obj.items()}
+            elif isinstance(obj, (list, tuple)):
+                return [deep_clean(item) for item in obj]
             else:
-                return obj
+                return str(obj)  # Convert any other type to string
         
-        # Clean the data
-        clean_series = make_serializable(series)
-        clean_options = make_serializable(chart_options)
+        # Apply deep cleaning
+        clean_series = deep_clean(series)
+        clean_options = deep_clean(chart_options)
         
-        # Test JSON serialization to catch any remaining issues
+        # Additional step: convert to JSON string and back to ensure clean serialization
+        import json
         try:
-            json.dumps(clean_series)
-            json.dumps(clean_options)
-        except TypeError as json_error:
-            st.error(f"JSON serialization error: {json_error}")
+            json_str = json.dumps(clean_series, ensure_ascii=True)
+            clean_series = json.loads(json_str)
+            
+            json_str = json.dumps(clean_options, ensure_ascii=True)
+            clean_options = json.loads(json_str)
+        except Exception as json_error:
+            st.error(f"JSON serialization test failed: {json_error}")
             return
         
+        # Try rendering with completely clean data
         renderLightweightCharts(clean_series, clean_options)
     except Exception as e:
         st.error(f"Error rendering chart: {e}")
