@@ -1,8 +1,9 @@
 import streamlit as st
 import pandas as pd
-from plot import plot_candlestick
+from streamlit_lightweight_charts import renderLightweightCharts
 from chatbot import get_bot_response
 import ast
+import json
 
 st.set_page_config(layout='wide', page_title="Stock Dashboard with AI Chat")
 
@@ -11,8 +12,7 @@ def load_and_process_data():
     """Load and process stock data with proper error handling"""
     try:
         df = pd.read_csv("data/stock_data.csv", parse_dates=["timestamp"])
-        
-        # Process Support/Resistance columns more safely
+
         for col in ["Support", "Resistance"]:
             if col in df.columns:
                 processed_values = []
@@ -22,10 +22,8 @@ def load_and_process_data():
                             processed_values.append([])
                         elif isinstance(value, str):
                             if value.strip().startswith('[') and value.strip().endswith(']'):
-                                # Use ast.literal_eval instead of eval for safety
                                 processed_values.append(ast.literal_eval(value.strip()))
                             else:
-                                # Handle comma-separated values
                                 try:
                                     nums = [float(x.strip()) for x in value.split(',') if x.strip()]
                                     processed_values.append(nums)
@@ -34,7 +32,6 @@ def load_and_process_data():
                         elif isinstance(value, (list, tuple)):
                             processed_values.append(list(value))
                         else:
-                            # Single number
                             try:
                                 processed_values.append([float(value)])
                             except (ValueError, TypeError):
@@ -42,50 +39,73 @@ def load_and_process_data():
                     except Exception as e:
                         st.warning(f"Error processing {col} at row {idx}: {e}")
                         processed_values.append([])
-                
                 df[col] = processed_values
-        
         return df
     except Exception as e:
         st.error(f"Error loading data: {e}")
         return None
 
+def plot_lightweight_candlestick(df):
+    try:
+        chart_data = df.rename(columns={
+            'timestamp': 'time',
+            'open': 'open',
+            'high': 'high',
+            'low': 'low',
+            'close': 'close'
+        })
+
+        # Convert datetime to ISO format
+        chart_data['time'] = chart_data['time'].dt.strftime('%Y-%m-%d')
+
+        candlestick_series = [{
+            "type": "candlestick",
+            "data": chart_data[['time', 'open', 'high', 'low', 'close']].to_dict(orient="records")
+        }]
+
+        chart_options = {
+            "width": 800,
+            "height": 400,
+            "layout": {
+                "background": {"color": "#ffffff"},
+                "textColor": "#000"
+            },
+            "grid": {
+                "vertLines": {"color": "#eee"},
+                "horzLines": {"color": "#eee"}
+            },
+            "priceScale": {"position": "right"},
+            "timeScale": {"timeVisible": True}
+        }
+
+        renderLightweightCharts(json.dumps(candlestick_series), json.dumps(chart_options))
+    except Exception as e:
+        st.error(f"Error rendering lightweight chart: {e}")
+
 # Load data
 df = load_and_process_data()
 
 if df is not None:
-    # Tabs for chart and chatbot
     tab1, tab2 = st.tabs(["📊 Chart", "🤖 AI Chatbot"])
 
     with tab1:
-        st.title("Candlestick Chart with Markers and Bands")
-        
-        # Add data inspection section for debugging
+        st.title("Candlestick Chart with Lightweight Charts")
+
         with st.expander("Data Debug Info"):
             st.write("DataFrame shape:", df.shape)
             st.write("Columns:", df.columns.tolist())
-            
-            # Show sample of Support/Resistance data
             if "Support" in df.columns:
-                st.write("Sample Support values:")
-                st.write(df["Support"].head().tolist())
+                st.write("Sample Support values:", df["Support"].head().tolist())
             if "Resistance" in df.columns:
-                st.write("Sample Resistance values:")
-                st.write(df["Resistance"].head().tolist())
-            
-            # Show data types
+                st.write("Sample Resistance values:", df["Resistance"].head().tolist())
             st.write("Data types:")
             st.write(df.dtypes)
-        
+
         try:
-            plot_candlestick(df)
+            plot_lightweight_candlestick(df)
         except Exception as e:
             st.error(f"Error plotting chart: {e}")
-            st.write("DataFrame info for debugging:")
-            st.write(df.info())
-            
-            # Show problematic data
-            st.write("First few rows of data:")
+            st.write("DataFrame info:")
             st.dataframe(df.head())
 
     with tab2:
