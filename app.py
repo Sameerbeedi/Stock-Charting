@@ -106,7 +106,7 @@ def plot_candlestick(df):
         height=800
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    return fig
 
 # Load Data
 df = load_data()
@@ -116,7 +116,8 @@ if df is not None:
 
     with tab1:
         st.title("Stock Visual Analysis")
-        plot_candlestick(df)
+        fig = plot_candlestick(df)
+        st.plotly_chart(fig, use_container_width=True)
 
     with tab2:
         st.title("Ask AI about Stock Trends")
